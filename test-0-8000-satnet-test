@@ -1,0 +1,2 @@
+training_size,correct_grid_ratio,correct_cell_ratio,ADMM_time,total_toulbar2_time, funcnumber, exact
+8000, 1.0, 1.0, 36.941550742, 21.871259658999932, 813, 0
