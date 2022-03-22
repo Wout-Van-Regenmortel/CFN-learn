@@ -5,7 +5,7 @@ from random import randrange
 import random
 import numpy as np
 import math,time,sys,os
-from numpy import linalg as la
+from numpy import linalg as la, sqrt
 from PEMRF import *
 import pandas as pd
 from colorama import Fore, Style
@@ -17,7 +17,7 @@ def find_best_sol0(CFNdata,  hints):
     tb2_time = 0
     # we assign the hints and ask for a less than zero cost solution
     cfn = toCFN(*CFNdata, assign = hints,  btLimit = btlimit)
-    cfn.UpdateUB(1e-6)
+    # cfn.UpdateUB(1e-6)
     ctime = time.process_time()            
     sol = cfn.Solve()
     tb2_time += time.process_time()-ctime
@@ -102,6 +102,32 @@ def pgrid(mode,lt,lh,lp=None,ld=None):
         if (i%3 == 2): print()
     print(Style.RESET_ALL)
 
+# print the true solution with hints, its LeNet decoded variant (if given, mode
+# 1/2) and the predicted solution (if given/found)
+def pgridLatin(mode,lt,lh, num_nodes, lp=None,ld=None):
+    print()
+    print("   S O L U T I O N            ",end='')
+    if (ld): print("  D E C O D E D             ",end='')
+    if (lp): print("P R E D I C T E D",end='')
+    print('\n')
+    dim = int(sqrt(num_nodes))
+    num_blocks_per_row = 1
+    size_block = 4
+    for i in range(dim):
+        print(end='       ')
+        for j in range(num_blocks_per_row):
+            print(" ".join([Fore.WHITE+str(a+1) if a==b else Style.RESET_ALL+str(a+1) 
+            for a,b in zip(lt[i*dim+j*size_block:i*dim+j*size_block+size_block],lh[i*dim+j*size_block:i*dim+j*size_block+size_block])]),end='   ')
+            #for a, b in zip(lt[i*dim+j*size_block:i*dim+j*size_block+size_block],lh[i*dim+j*size_block:i*dim+j*size_block+size_block]):
+            #   print(" ".join(Fore.WHITE+str(a+1) if a==b else Style.RESET_ALL+str(a+1)) ,end='   ')
+        print(end='                   ')
+        if (lp):
+            for j in range(num_blocks_per_row):
+                print(" ".join([Fore.WHITE+str(b+1) if c==b else Fore.GREEN+str(min(dim,a+1)) if a==b else Fore.RED+str(min(dim,a+1)) 
+                for a,b,c in zip(lp[i*dim+j*size_block:i*dim+j*size_block+size_block],lt[i*dim+j*size_block:i*dim+j*size_block+size_block],lh[i*dim+j*size_block:i*dim+j*size_block+size_block])]),end='   ')                    
+        print()
+    print(Style.RESET_ALL)
+
 
 # checks wether all items in a list are different 
 def all_diff(list:list):
@@ -156,8 +182,8 @@ def LatinPrinter(sol):
         print(item, end=' ' if index % 9 else '\n')
 
 
-def make_hint(sol):
-    dropped = random.sample(range(0, 81), 20)
+def make_hint(sol, nmb_left_out, nmb_nodes):
+    dropped = random.sample(range(0, nmb_nodes), nmb_left_out)
     # print(dropped)
     for index in dropped:
         sol[index] = 0
@@ -181,13 +207,14 @@ if (len(sys.argv) not in [4,5]):
 btlimit = 50000
 if (len(sys.argv) == 5):
     btlimit = int(sys.argv[4])
-num_sample = 30 #komt van 1000
 
+num_nodes = 16
+num_values = int(np.sqrt(num_nodes))
 mode = int(sys.argv[1])
 norm_type = Norms[0]
 training_size= int(sys.argv[2])
 
-testset_path = os.path.join("Other/LatinSquare/TestSets/test2",os.path.join("instance0"+".json"))
+testset_path = os.path.join("Other/LatinSquare/TestSets/4x4",os.path.join("instance"+".json"))
 
 with open(testset_path, "r") as testset_file:
     dict_testset = json.load(testset_file)
@@ -199,15 +226,22 @@ for square_dict in dict_testset['solutions']:
     list_data.append(square_data)
 
 testset_data = np.asarray(list_data)
+testset_data = [tuple(row) for row in testset_data]
+testset_data = np.unique(testset_data, axis= 0) #delete dublicates
+num_sample = len(testset_data)
+
 test_sols = list()
 test_hints = list()
+num_left_out = 5
 for numList in testset_data:
-    hint = make_hint(numList.copy())
+    hint = make_hint(numList.copy(), num_left_out, num_nodes)
     sol_num = int(''.join(map(str,numList)))
     hint_num = int(''.join(map(str,hint)))
-
+    hint_str = str(hint_num)
+    while (len(hint_str) < num_nodes):
+        hint_str = '0' + hint_str
     test_sols.append(str(sol_num))
-    test_hints.append(str(hint_num))
+    test_hints.append(hint_str)
 
 
 
@@ -223,8 +257,6 @@ dim_test_sols = len(test_sols)
 exp_logits = pickle.load(lzma.open(os.path.join("Sudoku","LeNet-outputs/MNIST_test_marginal.xz"), "rb"))
 exp_logits_len = list(map(lambda x: len(x), exp_logits))
 
-num_nodes = 81
-num_values = 9
 
 m = np.array([1, num_nodes])    # number of nodes for each type of distribution (plus initial value 1)
 dim = np.array([1, num_values]) # dimension for each type of distribution (plus initial value 1)
@@ -240,7 +272,8 @@ print(A)
 
 with open(os.path.join("Sudoku","lambdas/lambda-"+sys.argv[1]+"-"+sys.argv[2]),'r') as f:
     lamb = float(f.read())
-    lamb = 2
+    lamb = 5.424690937011328
+    # lamb = 0.5
 print(Fore.CYAN + "Lambda is",lamb)
 
 Z_init = np.ones([d+1,d+1])*0.2
@@ -272,15 +305,15 @@ for s,hint in enumerate(test_hints):
     if (sol):
         #deze lijn hier onder doet het printen
         sol2 = make_list_of_list(sol[0])
-        check_correct_latin_sq(sol2)
-        LatinPrinter(lhint)
-        print('\n')
-        LatinPrinter(sol[0])
-        print('\n')
-        LatinPrinter(ltruth)
-        print('\n')
+        print(check_correct_latin_sq(sol2))
+        # LatinPrinter(lhint)
+        # print('\n')
+        # LatinPrinter(sol[0])
+        # print('\n')
+        # LatinPrinter(ltruth)
+        # print('\n')
 
-        pgrid(mode,ltruth,lhint,list(sol[0]), MNIST_decode(test_sols[s].strip(), s) if mode > 0 else None)
+        pgridLatin(mode,ltruth,lhint,num_nodes, list(sol[0]), MNIST_decode(test_sols[s].strip(), s) if mode > 0 else None)
         if (mode < 2):
             # exact solution known, we can count the number of
             # wrong cells
@@ -304,7 +337,7 @@ for s,hint in enumerate(test_hints):
         print(Fore.RED,"No solution found. Sample",s+1,"/",num_sample,Style.RESET_ALL)
         bad += 1
         ndiff += 81*(20 if mode == 2 else 1)
-
+    aaaa = 1
 probe = (lamb, num_sample, bad, ndiff/(num_sample*81), ADMM_time, total_tb2_time, func_count, exact)
 
 print(Fore.CYAN +"======================================")

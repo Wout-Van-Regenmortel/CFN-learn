@@ -16,14 +16,8 @@ def latin_sq(square):
 def model_latin_sq(N):
     square = intvar(1,N, shape=(N,N))
     return square, Model(latin_sq(square))
-(square,m) = model_latin_sq(4)
+# (square,m) = model_latin_sq(4)
 
-# m
-# m.solve()
-# print(square.value())
-# m.solveAll()
-# N=4
-# np.random.randint(1,N+1, size=(N,N))
 
 def make_inst(N, i, pos=200, neg=200):
     binData = dict()
@@ -95,7 +89,9 @@ def make_inst2(N, i, pos=10, neg=10):
 
     # solutions, uniformly guided, unique
     s = SolverLookup.get("ortools", m)
+
     while len(binData['solutions']) < pos:
+
         # get random assignment
         rand = np.random.randint(1,N+1, size=(N,N))
         s.solution_hint(square.flatten(), rand.flatten())
@@ -120,13 +116,24 @@ def make_inst2(N, i, pos=10, neg=10):
     return binData
 
 
-N = 9
-i = 0
+N = 4
 print(N)
 
 # outdata = make_inst(N, i, N*50, N*50)
-outtraindata = make_inst2(N, i, 100, 0)
+print("start finding solutions")
+outtraindata = dict()
+outtraindata['solutions'] = []
+outtraindata['shortSolutions'] = []
+outtraindata['shortHints'] = []
+for i in range(0, 100, 20):
+    print("currently on " + str(i), end='\r')
+    extratraindata = make_inst2(N, i, 20, 0)
+    outtraindata['solutions'].extend(extratraindata['solutions'])
+    outtraindata['shortSolutions'].extend(extratraindata['shortSolutions'])
+    outtraindata['shortHints'].extend(extratraindata['shortHints'])
+
 outtestset = make_inst2(N, i, 10, 0)
+print("done finding solutions")
 
 directory = input("Enter directoryName: ")
 
@@ -143,14 +150,14 @@ os.mkdir(path_testset)
 print("Directory '% s' created" % directory)
 
 
-json.dump(outtraindata, fp=open(f"{path_traindata}/instance{i}.json", 'w'))
-json.dump(outtestset, fp=open(f"{path_testset}/instance{i}.json", 'w'))
+json.dump(outtraindata, fp=open(f"{path_traindata}/instance.json", 'w'))
+json.dump(outtestset, fp=open(f"{path_testset}/instance.json", 'w'))
 
 
 pd.io.json._json.loads = lambda s, *a, **kw: json.loads(s)
 
-df_json = pd.read_json(f"{path_traindata}/instance{i}.json", dtype= {'shortSolutions': object})
-df_json = pd.read_json(f"{path_testset}/instance{i}.json", dtype= {'shortSolutions': object})
+df_json = pd.read_json(f"{path_traindata}/instance.json", dtype= {'shortSolutions': object})
+df_json = pd.read_json(f"{path_testset}/instance.json", dtype= {'shortSolutions': object})
 
 print(df_json['shortSolutions'])
 a = df_json['shortSolutions']
@@ -158,9 +165,9 @@ a = df_json['shortSolutions']
 # df_json['solutions'] = df_json['solutions'].astype('float64')
 # df_json['shortSolutions'] = df_json['shortSolutions'].astype('int64')
 
-df_json.to_csv(f"{path_testset}/instance{i}.csv")
+df_json.to_csv(f"{path_testset}/instance.csv")
 
-# exce = pd.read_csv(f"{path}/instance{i}.csv", dtype={'shortSolutions':np.object_})
+# exce = pd.read_csv(f"{path}/instance.csv", dtype={'shortSolutions':np.object_})
 # print(exce['shortSolutions'])
 # print(exce.dtypes)
     

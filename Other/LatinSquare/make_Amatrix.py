@@ -51,8 +51,8 @@ def Amatrix(data, m_vec, dim_vec, balance, c):
     balance = [1, balance1, balance2, balance3, balance4]
     c: binary vector that indicates the nodes that are discrete random variables
     """
-    print(c)
-    print(len(c))
+    # print(c)
+    # print(len(c))
 
     num_sam, d_num = np.shape(data)
 
@@ -69,7 +69,7 @@ def Amatrix(data, m_vec, dim_vec, balance, c):
     return A
 
 # read latin squares data file
-path = '/home/wout/CFN-learn/Other/LatinSquare/Instances/Tests/test2/instance0.json'
+path = '/home/wout/CFN-learn/Other/LatinSquare/Instances/Tests/test50/instance.json'
     # path = '/home/wout/CFN-learn/Other/LatinSquare/Instances/Real'
 
 with open(path, "r") as datafile:
@@ -84,7 +84,10 @@ for square_dict in dict_data['solutions']:
 
 
 np_data = np.asarray(list_data)
-print(np_data)
+np_data = [tuple(row) for row in np_data]
+np_data = np.unique(np_data, axis= 0) #delete dublicates
+print(len(np_data))
+# print(np_data)
 
 # ONE HOT 3 DIMENSIONS 100 010 001 
 
@@ -94,26 +97,44 @@ all_domains = [np.asarray(dom) for _ in range(sq_dim*sq_dim)]
 onehotencoder = OneHotEncoder(categories=all_domains)
 data = onehotencoder.fit_transform(list_data).toarray()
 data = np.array(data, dtype=int)
-print(data[0])
+# print(data[0])
 
 num_sample_init = len(dict_data['solutions'])
 num_nodes = sq_dim**2
 
-m = np.ones(int(num_nodes+1), dtype=int)  # number of nodes for each type of distribution (plus initial value 1)
-list_dim = [1]
-for k in range(0, sq_dim**2):
-    list_dim.append(sq_dim)
-dim = np.array(list_dim)  # dimension for each type of distribution (plus initial value 1)
+def option1():
+    m = np.ones(int(num_nodes+1), dtype=int)  # number of nodes for each type of distribution (plus initial value 1)
+    list_dim = [1]
+    for k in range(0, sq_dim**2):
+        list_dim.append(sq_dim)
+    dim = np.array(list_dim)  # dimension for each type of distribution (plus initial value 1)
 
-# vector that indicates the nodes that are discrete random variables
-c = np.zeros(int(sum(m*dim)))
-c[1:] = 1
+    # vector that indicates the nodes that are discrete random variables
+    c = np.zeros(int(sum(m*dim)))
+    c[1:] = 1
 
-d = np.sum(np.multiply(m, dim))-1
+    d = np.sum(np.multiply(m, dim))-1
 
-balance = np.ones(len(dim))
+    balance = np.ones(len(dim))
+    return m, dim, c, balance
 
 
+def option2():
+    m = [1, 81]
+    m = np.array(m) # number of nodes for each type of distribution (plus initial value 1)
+    list_dim = [1, 9]
+    dim = np.array(list_dim)  # dimension for each type of distribution (plus initial value 1)
+
+    # vector that indicates the nodes that are discrete random variables
+    c = np.zeros(int(sum(m*dim)))
+    c[1:] = 1
+
+    d = np.sum(np.multiply(m, dim))-1
+
+    balance = np.ones(len(dim))
+    return m, dim, c, balance
+
+m, dim, c, balance = option1()
 A = Amatrix(data, m, dim, balance, c)
 
 pathout = '/home/wout/CFN-learn/Other/LatinSquare/Amatrices/Amatrix.csv'
