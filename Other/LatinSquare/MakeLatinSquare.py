@@ -20,7 +20,7 @@ def model_latin_sq(N):
     return square, Model(latin_sq(square))
 
 
-def make_inst_latin(N, pos=10, neg=10):
+def make_inst_latin(N, pos=10):
     binData = dict()
     binData['solutions'] = []
     binData['shortSolutions'] = []
@@ -66,7 +66,7 @@ step = 20
 counter = 0
 while len(data['solutions']) < (trainInstanceAmnt + testInstanceAmnt):
     print("currently on " + str(len(data['solutions'])), end='\r')
-    extratraindata = make_inst_latin(N, step, 0)
+    extratraindata = make_inst_latin(N, step)
     counter += step
     for i in range(0, len(extratraindata['solutions'])):
         extraSol = extratraindata['solutions'][i]
