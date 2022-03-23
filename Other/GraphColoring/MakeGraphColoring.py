@@ -4,74 +4,10 @@ import pandas as pd
 import os
 import numpy as np
 import json
-from cpmpy import * # pip3 install cpmpy
+from cpmpy import * 
 from cpmpy.solvers import CPM_ortools
 from random import randrange
 import sys
-
-
-def inside(new_row, found_rows):
-    for found_row in found_rows:
-        if (new_row == found_row).all():
-            return True
-    return False
-
-def indirect_connected(square, found_rows, not_fully_searched): 
-    new_found_rows = found_rows.copy()
-    new_not_fully_searched = not_fully_searched.copy()
-    for row in not_fully_searched:
-
-        direct_connections = get_dir_con(square, row)
-        for new_row in direct_connections:
-
-            if not (inside(new_row, found_rows)):
-                new_found_rows.append(new_row)
-                new_not_fully_searched.append(new_row)
-        new_not_fully_searched.remove(row)
-
-    if len(new_not_fully_searched) == 0:
-        return new_found_rows
-    else:
-        return indirect_connected(square, new_found_rows, new_not_fully_searched)
-
-
-
-def get_dir_con(square, row):
-    direct_connections = []
-    for j in range(0, len(row)-1):
-        path = row[j]
-        if path == 1:
-            direct_connections.append(square[j])
-    return direct_connections
-
-def connected(square):
-    row = square[0]
-    connections = []
-
-    direct_connections = get_dir_con(square, row)
-    connections.extend(direct_connections)
-
-    indirect_paths = indirect_connected(square, connections, direct_connections)
-    connections = indirect_paths
-    # connections = [tuple(row) for row in connections]
-    # connections = np.unique(connections, axis= 0) #delete dublicates
-    if len(connections) != len(square):
-        return False
-    else:
-        return True
-
-def connected_constraints2(square):
-    constraints = []
-    for row_index in range(0, len(square)):
-        cur_row = square[row_index]
-        for col_index in range(0, len(square[0])-1):
-            sum = cur_row[col_index]
-            for other_row_index in range(0, len(square)):
-                cur_other_row = square[other_row_index]
-                if other_row_index != row_index:
-                    sum + cur_row[other_row_index]*cur_other_row[col_index]
-            constraints.append(sum>0)
-
 
 def connected_constraints(square):
     constraints = []
@@ -101,26 +37,6 @@ def diff_color_constraints(square):
     return constraints
 
 
-# square = np.array(
-#         [[0,  1,  1,  0,  0,  1],
-#         [ 1,  0,  0,  0,  0,  2],
-#         [ 1,  0,  0,  1,  0,  3],
-#         [ 0,  0,  1,  0,  1,  4],
-#         [ 0,  0,  0,  1,  0,  5]])   
-
-# print(connected(square))
-
-def get_col(row):
-    return row[len(row)-1]
-
-def neighbours_have_diff_color(square):
-    for row in square:
-        dir_cons = get_dir_con(square, row)
-        for con in dir_cons:
-            if get_col(row) == get_col(con):
-                return 0
-    return 1
-
 def path_constr(square):
     constraints = []
     for row_index in range(0, len(square)):
@@ -140,7 +56,6 @@ def nmb_dir_con_constr(square, nmb_colors):
     constraints = []
     for row_index in range(0, len(square)):
         cur_row = square[row_index]
-        # rand = np.random.randint(1,nmb_colors-1)
         sum = 0
         for col_index in range(0, len(square[0])-1):
             sum += cur_row[col_index]
@@ -157,11 +72,11 @@ def sym_constr(square):
     return constraints
 
 
-# latin square has rows/cols permutations (alldifferent)
 def graph_sq(square, num_colors):
     con_constr = connected_constraints(square)
 
-    return   [con_constr, path_constr(square), 
+    return   [con_constr, 
+                path_constr(square), 
                 color_constr(square), 
                 nmb_dir_con_constr(square, num_colors), 
                 sym_constr(square),
@@ -172,18 +87,10 @@ def graph_sq(square, num_colors):
 
 def model_graph_sq(N, max_colors):
     square = intvar(0,max_colors+1, shape=(N,N+1))
-    # for i in range(0, len(square)):
-    #     row = square[i]
-    #     color = intvar(2, max_colors+1)
-    #     row[N] = color
     return square, Model(graph_sq(square, max_colors))
 
 # def model_graph_sq(N, max_colors):                            #als kleuren 1-4
 #     square = intvar(0,max_colors-1, shape=(N,N+1))
-#     # for i in range(0, len(square)):
-#     #     row = square[i]
-#     #     color = intvar(2, max_colors+1)
-#     #     row[N] = color
 #     return square, Model(graph_sq(square, max_colors))
 
 def make_inst_graph(N, max_colors, pos):
@@ -203,7 +110,7 @@ def make_inst_graph(N, max_colors, pos):
         for i in range(0, len(rand)):
             row = rand[i]
             color = np.random.randint(0, max_colors+1)
-            # color = np.random.randint(0, max_colors-1)
+            # color = np.random.randint(0, max_colors-1)  #als kleuren 1-4
             row[N] = color
         s.solution_hint(square.flatten(), rand.flatten())
         s.solve()
@@ -222,35 +129,61 @@ def make_inst_graph(N, max_colors, pos):
 
         binData['shortSolutions'].append(''.join(map(str,joined)))
 
-        hints = joined[:2]
-        hints += [0]* (N**2 -2)
-        hints = ''.join(map(str,hints))
-        binData['shortHints'].append(hints) 
-
         s += any(square != rand)
     
     return binData
 
-# a = make_inst_graph(5, 4, 1)
+if len(sys.argv) != 4:
+    n = 4
+    sys.argv = [None] * n
+    sys.argv[1] = 10
+    sys.argv[2] = 6
+    sys.argv[3] = 100
+
+
 N = int(sys.argv[1])
 maxColors = int(sys.argv[2])
-instanceAmnt = int(sys.argv[3])
+trainInstanceAmnt = int(sys.argv[3])
+testInstanceAmnt = int(trainInstanceAmnt * 0.2)
+print(N)
 
-# outdata = make_inst(N, i, N*50, N*50)
 print("start finding solutions")
-outtraindata = dict()
-outtraindata['solutions'] = []
-outtraindata['shortSolutions'] = []
-outtraindata['shortHints'] = []
-for i in range(0, instanceAmnt, 100):
-    print("currently on " + str(i), end='\r')
-    extratraindata = make_inst_graph(N, maxColors, 100)
-    outtraindata['solutions'].extend(extratraindata['solutions'])
-    outtraindata['shortSolutions'].extend(extratraindata['shortSolutions'])
-    outtraindata['shortHints'].extend(extratraindata['shortHints'])
-
-outtestset = make_inst_graph(N, maxColors, int(instanceAmnt * 0.2))
+data = dict()
+data['solutions'] = []
+data['shortSolutions'] = []
+step = 20
+counter = 0
+while len(data['solutions']) < (trainInstanceAmnt + testInstanceAmnt):
+    print("currently on " + str(len(data['solutions'])), end='\r')
+    extratraindata = make_inst_graph(N, maxColors, step)
+    counter += step
+    for i in range(0, len(extratraindata['solutions'])):
+        extraSol = extratraindata['solutions'][i]
+        extraShort = extratraindata['shortSolutions'][i]
+        if extraSol not in data['solutions']:
+            data['solutions'].append(extraSol)
+            data['shortSolutions'].append(extraShort)
 print("done finding solutions")
+
+
+outtraindata = dict()
+outtraindata['solutions'] = data['solutions'][0:trainInstanceAmnt]
+outtraindata['shortSolutions'] = data['shortSolutions'][0:trainInstanceAmnt]
+
+outtestset = dict()
+outtestset['solutions'] = data['solutions'][trainInstanceAmnt:trainInstanceAmnt + testInstanceAmnt]
+outtestset['shortSolutions'] = data['shortSolutions'][trainInstanceAmnt:trainInstanceAmnt + testInstanceAmnt]
+
+for train in outtraindata['solutions']:
+    for test in outtestset['solutions']:
+        if train == test:
+            print("mag niet geprint worden!!!")
+
+print("all data length is " + str(counter))
+print("all unique data length is " + str(len(data['solutions'] )))
+print("train length is " + str(len(outtraindata['solutions'] )))
+print("test length is " + str(len(outtestset['solutions'] )))
+
 
 path_data = 'Data/GraphColoring/nodes_' + str(N) + '_colors_' + str(maxColors) 
 
@@ -272,8 +205,8 @@ try:
 except FileExistsError:
     pass
 
-json.dump(outtraindata, fp=open(f"{path_train_data}/instance_{instanceAmnt}.json", 'w'))
-json.dump(outtestset, fp=open(f"{path_test_data}/instance_{instanceAmnt}.json", 'w'))
+json.dump(outtraindata, fp=open(f"{path_train_data}/instance_{trainInstanceAmnt}.json", 'w'))
+json.dump(outtestset, fp=open(f"{path_test_data}/instance_{trainInstanceAmnt}.json", 'w'))
 
 
     
