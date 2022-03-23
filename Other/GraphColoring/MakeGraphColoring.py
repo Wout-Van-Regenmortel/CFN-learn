@@ -7,6 +7,8 @@ import json
 from cpmpy import * # pip3 install cpmpy
 from cpmpy.solvers import CPM_ortools
 from random import randrange
+import sys
+
 
 def inside(new_row, found_rows):
     for found_row in found_rows:
@@ -216,7 +218,7 @@ def make_inst_graph(N, max_colors, pos):
                 row[index] += 1
             incremented.append(row)
 
-        binData['solutions'].append(dict([('square', incremented)]))
+        binData['solutions'].append(dict([('graph', incremented)]))
 
         binData['shortSolutions'].append(''.join(map(str,joined)))
 
@@ -230,9 +232,9 @@ def make_inst_graph(N, max_colors, pos):
     return binData
 
 # a = make_inst_graph(5, 4, 1)
-N = 5
-max_colors = 4
-print(N)
+N = int(sys.argv[1])
+maxColors = int(sys.argv[2])
+instanceAmnt = int(sys.argv[3])
 
 # outdata = make_inst(N, i, N*50, N*50)
 print("start finding solutions")
@@ -240,33 +242,38 @@ outtraindata = dict()
 outtraindata['solutions'] = []
 outtraindata['shortSolutions'] = []
 outtraindata['shortHints'] = []
-for i in range(0, 100, 1):
+for i in range(0, instanceAmnt, 100):
     print("currently on " + str(i), end='\r')
-    extratraindata = make_inst_graph(N, max_colors, 1)
+    extratraindata = make_inst_graph(N, maxColors, 100)
     outtraindata['solutions'].extend(extratraindata['solutions'])
     outtraindata['shortSolutions'].extend(extratraindata['shortSolutions'])
     outtraindata['shortHints'].extend(extratraindata['shortHints'])
 
-outtestset = make_inst_graph(N, max_colors, 20)
+outtestset = make_inst_graph(N, maxColors, int(instanceAmnt * 0.2))
 print("done finding solutions")
 
-directory = input("Enter directoryName: ")
+path_data = 'Data/GraphColoring/nodes_' + str(N) + '_colors_' + str(maxColors) 
 
-parent_dir_traindata = '/home/wout/CFN-learn/Other/GraphColoring/Instances/Tests'
-parent_dir_testset = '/home/wout/CFN-learn/Other/GraphColoring/TestSets'
+path_train_data = path_data + '/train'
+path_test_data = path_data + '/test'
 
-# parent_dir = '/home/wout/CFN-learn/Other/LatinSquare/Real'
-path_traindata = os.path.join(parent_dir_traindata, directory)
-path_testset = os.path.join(parent_dir_testset, directory)
+try:
+    os.mkdir(path_data)
+except FileExistsError:
+    pass
 
-os.mkdir(path_traindata)
-os.mkdir(path_testset)
+try:
+    os.mkdir(path_train_data)
+except FileExistsError:
+    pass
 
-print("Directory '% s' created" % directory)
+try:
+    os.mkdir(path_test_data)
+except FileExistsError:
+    pass
 
-
-json.dump(outtraindata, fp=open(f"{path_traindata}/instance.json", 'w'))
-json.dump(outtestset, fp=open(f"{path_testset}/instance.json", 'w'))
+json.dump(outtraindata, fp=open(f"{path_train_data}/instance_{instanceAmnt}.json", 'w'))
+json.dump(outtestset, fp=open(f"{path_test_data}/instance_{instanceAmnt}.json", 'w'))
 
 
     
