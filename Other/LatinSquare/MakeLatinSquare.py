@@ -4,14 +4,11 @@ import pandas as pd
 import os
 import numpy as np
 import json
-from cpmpy import * # pip3 install cpmpy
+from cpmpy import * 
 from cpmpy.solvers import CPM_ortools
 from random import randrange
 import sys
 
-# Script to make latin squares, needs input of dimension and amount of train instances
-# script then makes amount of train instances and 20% of this amount test instances
-# saves the instances in Instances/dimx
 
 # latin square has rows/cols permutations (alldifferent)
 def latin_sq(square):
@@ -21,78 +18,16 @@ def latin_sq(square):
 def model_latin_sq(N):
     square = intvar(1,N, shape=(N,N))
     return square, Model(latin_sq(square))
-# (square,m) = model_latin_sq(4)
 
 
-def make_inst(N, i, pos=200, neg=200):
+def make_inst_latin(N, pos=10, neg=10):
     binData = dict()
-    binData['problemType'] = 'type01'
-    binData['instance'] = i
-    binData['size'] = N
-    binData['formatTemplate'] = dict()
-    # N*N boolvars
-    binData['formatTemplate']['square'] = [[dict([('high',N), ('low',1), ('type','dvar')])]*N ]*N
-    binData['tests'] = []
-    
     binData['solutions'] = []
-    binData['nonSolutions'] = []
-    
-    # nonSolutions, uniformly
-    (square,m) = model_latin_sq(N)
-    while len(binData['nonSolutions']) < neg:
-        s = SolverLookup.get("ortools", m)
-        # get random assignment
-        rand = np.random.randint(1,N+1, size=(N,N))
-        s += [square == rand]
-        # I make the same error here, that they need not be unique...
-        if s.solve():
-            binData['solutions'].append(dict([('square', rand.tolist())]))
-        else:
-            binData['nonSolutions'].append(dict([('square', rand.tolist())]))
-
-    # solutions, uniformly guided, unique
-    s = SolverLookup.get("ortools", m)
-    while len(binData['solutions']) < pos:
-        # get random assignment
-        rand = np.random.randint(1,N+1, size=(N,N))
-        s.solution_hint(square.flatten(), rand.flatten())
-        s.solve()
-        binData['solutions'].append(dict([('square', square.value().tolist())]))
-        s += any(square != rand)
-    
-    return binData
-
-def make_inst2(N, i, pos=10, neg=10):
-    binData = dict()
-
-    # binData['problemType'] = 'type01'
-    # binData['instance'] = i
-    # binData['size'] = N
-    # binData['formatTemplate'] = dict()
-    ## N*N boolvars
-    # binData['formatTemplate']['square'] = [[dict([('high',N), ('low',1), ('type','dvar')])]*N ]*N
-    # binData['tests'] = []
-    
-    binData['solutions'] = []
-    # binData['nonSolutions'] = []
     binData['shortSolutions'] = []
     binData['shortHints'] = []
 
     
-    # # nonSolutions, uniformly
     (square,m) = model_latin_sq(N)
-    # while len(binData['nonSolutions']) < neg:
-    #     s = SolverLookup.get("ortools", m)
-    #     # get random assignment
-    #     rand = np.random.randint(1,N+1, size=(N,N))
-    #     s += [square == rand]
-    #     # I make the same error here, that they need not be unique...
-    #     if s.solve():
-    #         binData['solutions'].append(dict([('square', rand.tolist())]))
-    #     else:
-    #         binData['nonSolutions'].append(dict([('square', rand.tolist())]))
-
-    # solutions, uniformly guided, unique
     s = SolverLookup.get("ortools", m)
 
     while len(binData['solutions']) < pos:
@@ -106,40 +41,61 @@ def make_inst2(N, i, pos=10, neg=10):
         for i in square.value().tolist():
             joined += i
 
-        # print(int(''.join(map(str,joined))))
         binData['solutions'].append(dict([('square', square.value().tolist())]))
-
         binData['shortSolutions'].append(''.join(map(str,joined)))
-
-        hints = joined[:2]
-        hints += [0]* (N**2 -2)
-        hints = ''.join(map(str,hints))
-        binData['shortHints'].append(hints)
-
         s += any(square != rand)
     
     return binData
 
+if len(sys.argv) != 3:
+    n = 3
+    sys.argv = [None] * n
+    sys.argv[1] = 4
+    sys.argv[2] = 30
 
 N = int(sys.argv[1])
-instanceAmnt = int(sys.argv[2])
+trainInstanceAmnt = int(sys.argv[2])
+testInstanceAmnt = int(trainInstanceAmnt * 0.2)
 print(N)
 
-# outdata = make_inst(N, i, N*50, N*50)
 print("start finding solutions")
-outtraindata = dict()
-outtraindata['solutions'] = []
-outtraindata['shortSolutions'] = []
-outtraindata['shortHints'] = []
-for i in range(0, instanceAmnt, 20):
-    print("currently on " + str(i), end='\r')
-    extratraindata = make_inst2(N, i, 20, 0)
-    outtraindata['solutions'].extend(extratraindata['solutions'])
-    outtraindata['shortSolutions'].extend(extratraindata['shortSolutions'])
-    outtraindata['shortHints'].extend(extratraindata['shortHints'])
-
-outtestset = make_inst2(N, i, int(instanceAmnt * 0.2), 0)
+data = dict()
+data['solutions'] = []
+data['shortSolutions'] = []
+step = 20
+counter = 0
+while len(data['solutions']) < (trainInstanceAmnt + testInstanceAmnt):
+    print("currently on " + str(len(data['solutions'])), end='\r')
+    extratraindata = make_inst_latin(N, step, 0)
+    counter += step
+    for i in range(0, len(extratraindata['solutions'])):
+        extraSol = extratraindata['solutions'][i]
+        extraShort = extratraindata['shortSolutions'][i]
+        if extraSol not in data['solutions']:
+            data['solutions'].append(extraSol)
+            data['shortSolutions'].append(extraShort)
 print("done finding solutions")
+
+
+outtraindata = dict()
+outtraindata['solutions'] = data['solutions'][0:trainInstanceAmnt]
+outtraindata['shortSolutions'] = data['shortSolutions'][0:trainInstanceAmnt]
+
+outtestset = dict()
+outtestset['solutions'] = data['solutions'][trainInstanceAmnt:trainInstanceAmnt + testInstanceAmnt]
+outtestset['shortSolutions'] = data['shortSolutions'][trainInstanceAmnt:trainInstanceAmnt + testInstanceAmnt]
+
+for train in outtraindata['solutions']:
+    for test in outtestset['solutions']:
+        if train == test:
+            print("mag niet geprint worden!!!")
+
+print("all data length is " + str(counter))
+print("all unique data length is " + str(len(data['solutions'] )))
+print("train length is " + str(len(outtraindata['solutions'] )))
+print("test length is " + str(len(outtestset['solutions'] )))
+
+
 
 path_data = 'Data/LatinSquare/dim' + str(N) 
 
@@ -161,24 +117,5 @@ try:
 except FileExistsError:
     pass
 
-json.dump(outtraindata, fp=open(f"{path_train_data}/instance_{instanceAmnt}.json", 'w'))
-json.dump(outtestset, fp=open(f"{path_test_data}/instance_{instanceAmnt}.json", 'w'))
-
-
-# pd.io.json._json.loads = lambda s, *a, **kw: json.loads(s)
-
-# df_json = pd.read_json(f"{path_traindata}/instance.json", dtype= {'shortSolutions': object})
-# df_json = pd.read_json(f"{path_testset}/instance.json", dtype= {'shortSolutions': object})
-
-# print(df_json['shortSolutions'])
-# a = df_json['shortSolutions']
-
-# # df_json['solutions'] = df_json['solutions'].astype('float64')
-# # df_json['shortSolutions'] = df_json['shortSolutions'].astype('int64')
-
-# df_json.to_csv(f"{path_testset}/instance.csv")
-
-# # exce = pd.read_csv(f"{path}/instance.csv", dtype={'shortSolutions':np.object_})
-# # print(exce['shortSolutions'])
-# # print(exce.dtypes)
-    
+json.dump(outtraindata, fp=open(f"{path_train_data}/instance_{trainInstanceAmnt}.json", 'w'))
+json.dump(outtestset, fp=open(f"{path_test_data}/instance_{trainInstanceAmnt}.json", 'w'))
