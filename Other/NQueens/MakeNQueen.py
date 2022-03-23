@@ -7,7 +7,7 @@ import json
 from cpmpy import * # pip3 install cpmpy
 from cpmpy.solvers import CPM_ortools
 from random import randrange
-
+import sys
 
 
 
@@ -85,7 +85,7 @@ def make_inst_nqueen(N, pos):
         # print(square.value().tolist())
 
 
-        binData['solutions'].append(dict([('square', incremented)]))
+        binData['solutions'].append(dict([('board', incremented)]))
 
         binData['shortSolutions'].append(''.join(map(str,joined)))
 
@@ -99,8 +99,8 @@ def make_inst_nqueen(N, pos):
     return binData
 
 # a = make_inst_nqueen(4, 1)
-N = 8
-print(N)
+N = int(sys.argv[1])
+instanceAmnt = int(sys.argv[2])
 
 # outdata = make_inst(N, i, N*50, N*50)
 print("start finding solutions")
@@ -108,33 +108,40 @@ outtraindata = dict()
 outtraindata['solutions'] = []
 outtraindata['shortSolutions'] = []
 outtraindata['shortHints'] = []
-for i in range(0, 100, 20):
+for i in range(0, instanceAmnt, 20):
     print("currently on " + str(i), end='\r')
     extratraindata = make_inst_nqueen(N, 20)
     outtraindata['solutions'].extend(extratraindata['solutions'])
     outtraindata['shortSolutions'].extend(extratraindata['shortSolutions'])
     outtraindata['shortHints'].extend(extratraindata['shortHints'])
 
-outtestset = make_inst_nqueen(N, 50)
+outtestset = make_inst_nqueen(N, int(instanceAmnt * 0.2))
 print("done finding solutions")
 
-directory = input("Enter directoryName: ")
+path_data = 'Data/Nqueens/dim' + str(N) 
 
-parent_dir_traindata = '/home/wout/CFN-learn/Other/NQueens/Instances/Tests'
-parent_dir_testset = '/home/wout/CFN-learn/Other/NQueens/TestSets'
+path_train_data = path_data + '/train'
+path_test_data = path_data + '/test'
 
-# parent_dir = '/home/wout/CFN-learn/Other/LatinSquare/Real'
-path_traindata = os.path.join(parent_dir_traindata, directory)
-path_testset = os.path.join(parent_dir_testset, directory)
+try:
+    os.mkdir(path_data)
+except FileExistsError:
+    pass
 
-os.mkdir(path_traindata)
-os.mkdir(path_testset)
+try:
+    os.mkdir(path_train_data)
+except FileExistsError:
+    pass
 
-print("Directory '% s' created" % directory)
+try:
+    os.mkdir(path_test_data)
+except FileExistsError:
+    pass
+
+json.dump(outtraindata, fp=open(f"{path_train_data}/instance_{instanceAmnt}.json", 'w'))
+json.dump(outtestset, fp=open(f"{path_test_data}/instance_{instanceAmnt}.json", 'w'))
 
 
-json.dump(outtraindata, fp=open(f"{path_traindata}/instance.json", 'w'))
-json.dump(outtestset, fp=open(f"{path_testset}/instance.json", 'w'))
 
 
     
