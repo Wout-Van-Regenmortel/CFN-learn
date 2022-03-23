@@ -1,3 +1,5 @@
+from genericpath import exists
+from importlib.resources import path
 import pandas as pd
 import os
 import numpy as np
@@ -5,8 +7,11 @@ import json
 from cpmpy import * # pip3 install cpmpy
 from cpmpy.solvers import CPM_ortools
 from random import randrange
+import sys
 
-# Notebook to make magic square problems/instance
+# Script to make latin squares, needs input of dimension and amount of train instances
+# script then makes amount of train instances and 20% of this amount test instances
+# saves the instances in Instances/dimx
 
 # latin square has rows/cols permutations (alldifferent)
 def latin_sq(square):
@@ -116,7 +121,8 @@ def make_inst2(N, i, pos=10, neg=10):
     return binData
 
 
-N = 4
+N = int(sys.argv[1])
+instanceAmnt = int(sys.argv[2])
 print(N)
 
 # outdata = make_inst(N, i, N*50, N*50)
@@ -125,49 +131,54 @@ outtraindata = dict()
 outtraindata['solutions'] = []
 outtraindata['shortSolutions'] = []
 outtraindata['shortHints'] = []
-for i in range(0, 100, 20):
+for i in range(0, instanceAmnt, 20):
     print("currently on " + str(i), end='\r')
     extratraindata = make_inst2(N, i, 20, 0)
     outtraindata['solutions'].extend(extratraindata['solutions'])
     outtraindata['shortSolutions'].extend(extratraindata['shortSolutions'])
     outtraindata['shortHints'].extend(extratraindata['shortHints'])
 
-outtestset = make_inst2(N, i, 10, 0)
+outtestset = make_inst2(N, i, int(instanceAmnt * 0.2), 0)
 print("done finding solutions")
 
-directory = input("Enter directoryName: ")
+path_data = 'Data/LatinSquare/dim' + str(N) 
 
-parent_dir_traindata = '/home/wout/CFN-learn/Other/LatinSquare/Instances/Tests'
-parent_dir_testset = '/home/wout/CFN-learn/Other/LatinSquare/TestSets'
+path_train_data = path_data + '/train'
+path_test_data = path_data + '/test'
 
-# parent_dir = '/home/wout/CFN-learn/Other/LatinSquare/Real'
-path_traindata = os.path.join(parent_dir_traindata, directory)
-path_testset = os.path.join(parent_dir_testset, directory)
+try:
+    os.mkdir(path_data)
+except FileExistsError:
+    pass
 
-os.mkdir(path_traindata)
-os.mkdir(path_testset)
+try:
+    os.mkdir(path_train_data)
+except FileExistsError:
+    pass
 
-print("Directory '% s' created" % directory)
+try:
+    os.mkdir(path_test_data)
+except FileExistsError:
+    pass
+
+json.dump(outtraindata, fp=open(f"{path_train_data}/instance_{instanceAmnt}.json", 'w'))
+json.dump(outtestset, fp=open(f"{path_test_data}/instance_{instanceAmnt}.json", 'w'))
 
 
-json.dump(outtraindata, fp=open(f"{path_traindata}/instance.json", 'w'))
-json.dump(outtestset, fp=open(f"{path_testset}/instance.json", 'w'))
+# pd.io.json._json.loads = lambda s, *a, **kw: json.loads(s)
 
+# df_json = pd.read_json(f"{path_traindata}/instance.json", dtype= {'shortSolutions': object})
+# df_json = pd.read_json(f"{path_testset}/instance.json", dtype= {'shortSolutions': object})
 
-pd.io.json._json.loads = lambda s, *a, **kw: json.loads(s)
+# print(df_json['shortSolutions'])
+# a = df_json['shortSolutions']
 
-df_json = pd.read_json(f"{path_traindata}/instance.json", dtype= {'shortSolutions': object})
-df_json = pd.read_json(f"{path_testset}/instance.json", dtype= {'shortSolutions': object})
+# # df_json['solutions'] = df_json['solutions'].astype('float64')
+# # df_json['shortSolutions'] = df_json['shortSolutions'].astype('int64')
 
-print(df_json['shortSolutions'])
-a = df_json['shortSolutions']
+# df_json.to_csv(f"{path_testset}/instance.csv")
 
-# df_json['solutions'] = df_json['solutions'].astype('float64')
-# df_json['shortSolutions'] = df_json['shortSolutions'].astype('int64')
-
-df_json.to_csv(f"{path_testset}/instance.csv")
-
-# exce = pd.read_csv(f"{path}/instance.csv", dtype={'shortSolutions':np.object_})
-# print(exce['shortSolutions'])
-# print(exce.dtypes)
+# # exce = pd.read_csv(f"{path}/instance.csv", dtype={'shortSolutions':np.object_})
+# # print(exce['shortSolutions'])
+# # print(exce.dtypes)
     
