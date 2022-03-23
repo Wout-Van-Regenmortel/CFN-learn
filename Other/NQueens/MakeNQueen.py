@@ -4,14 +4,13 @@ import pandas as pd
 import os
 import numpy as np
 import json
-from cpmpy import * # pip3 install cpmpy
+from cpmpy import * 
 from cpmpy.solvers import CPM_ortools
 from random import randrange
 import sys
 
 
 
-# latin square has rows/cols permutations (alldifferent)
 def nqueen_sq(square):
     iSize = len(square[0])
 
@@ -24,20 +23,8 @@ def nqueen_sq(square):
     for i in range(iSize-1,-1,-1):
         result2 +=square[i][i]
 
-    # iSize = 4
-    # square = np.array(
-    #      [[-2,  5,  3,  2],
-    #       [ 9, -6,  5,  1],
-    #       [ 3,  2,  7,  3],
-    #       [-1,  8, -4,  8]])
-
-    # diags = [matrix[::-1,:].diagonal(i) for i in range(-3,4)]
-    # diags.extend(matrix.diagonal(i) for i in range(3,-4,-1))
-    # print([n.tolist() for n in diags])
-
     diags = [square[::-1,:].diagonal(i) for i in range(-iSize+1,iSize)]
     diags.extend(square.diagonal(i) for i in range(iSize-1,-iSize,-1))
-    # print([n.tolist() for n in diags])
 
     return [[sum(row) == 1 for row in square],
             [sum(col) == 1 for col in square.T],
@@ -53,7 +40,6 @@ def make_inst_nqueen(N, pos):
     binData = dict()  
     binData['solutions'] = []
     binData['shortSolutions'] = []
-    binData['shortHints'] = []
 
     
     (square,m) = model_nqueen_sq(N)
@@ -71,52 +57,68 @@ def make_inst_nqueen(N, pos):
             for index in range(0, len(row)):
                 row[index] += 1
             joined += row
-            # print(row)
 
         incremented = []
         for row in square.value().tolist():
             for index in range(0, len(row)):
                 row[index] += 1
             incremented.append(row)
-            # print(row)
-
-
-        # print(incremented)
-        # print(square.value().tolist())
-
 
         binData['solutions'].append(dict([('board', incremented)]))
-
         binData['shortSolutions'].append(''.join(map(str,joined)))
-
-        hints = joined[:2]
-        hints += [0]* (N**2 -2)
-        hints = ''.join(map(str,hints))
-        binData['shortHints'].append(hints)
 
         s += any(square != rand)
     
     return binData
 
-# a = make_inst_nqueen(4, 1)
+if len(sys.argv) != 3:
+    n = 3
+    sys.argv = [None] * n
+    sys.argv[1] = 8
+    sys.argv[2] = 20
+
 N = int(sys.argv[1])
-instanceAmnt = int(sys.argv[2])
+trainInstanceAmnt = int(sys.argv[2])
+testInstanceAmnt = int(trainInstanceAmnt * 0.2)
+print(N)
 
-# outdata = make_inst(N, i, N*50, N*50)
 print("start finding solutions")
-outtraindata = dict()
-outtraindata['solutions'] = []
-outtraindata['shortSolutions'] = []
-outtraindata['shortHints'] = []
-for i in range(0, instanceAmnt, 20):
-    print("currently on " + str(i), end='\r')
-    extratraindata = make_inst_nqueen(N, 20)
-    outtraindata['solutions'].extend(extratraindata['solutions'])
-    outtraindata['shortSolutions'].extend(extratraindata['shortSolutions'])
-    outtraindata['shortHints'].extend(extratraindata['shortHints'])
-
-outtestset = make_inst_nqueen(N, int(instanceAmnt * 0.2))
+data = dict()
+data['solutions'] = []
+data['shortSolutions'] = []
+step = 20
+counter = 0
+while len(data['solutions']) < (trainInstanceAmnt + testInstanceAmnt):
+    print("currently on " + str(len(data['solutions'])), end='\r')
+    extratraindata = make_inst_nqueen(N, step)
+    counter += step
+    for i in range(0, len(extratraindata['solutions'])):
+        extraSol = extratraindata['solutions'][i]
+        extraShort = extratraindata['shortSolutions'][i]
+        if extraSol not in data['solutions']:
+            data['solutions'].append(extraSol)
+            data['shortSolutions'].append(extraShort)
 print("done finding solutions")
+
+
+outtraindata = dict()
+outtraindata['solutions'] = data['solutions'][0:trainInstanceAmnt]
+outtraindata['shortSolutions'] = data['shortSolutions'][0:trainInstanceAmnt]
+
+outtestset = dict()
+outtestset['solutions'] = data['solutions'][trainInstanceAmnt:trainInstanceAmnt + testInstanceAmnt]
+outtestset['shortSolutions'] = data['shortSolutions'][trainInstanceAmnt:trainInstanceAmnt + testInstanceAmnt]
+
+for train in outtraindata['solutions']:
+    for test in outtestset['solutions']:
+        if train == test:
+            print("mag niet geprint worden!!!")
+
+print("all data length is " + str(counter))
+print("all unique data length is " + str(len(data['solutions'] )))
+print("train length is " + str(len(outtraindata['solutions'] )))
+print("test length is " + str(len(outtestset['solutions'] )))
+
 
 path_data = 'Data/Nqueens/dim' + str(N) 
 
@@ -138,10 +140,5 @@ try:
 except FileExistsError:
     pass
 
-json.dump(outtraindata, fp=open(f"{path_train_data}/instance_{instanceAmnt}.json", 'w'))
-json.dump(outtestset, fp=open(f"{path_test_data}/instance_{instanceAmnt}.json", 'w'))
-
-
-
-
-    
+json.dump(outtraindata, fp=open(f"{path_train_data}/instance_{trainInstanceAmnt}.json", 'w'))
+json.dump(outtestset, fp=open(f"{path_test_data}/instance_{trainInstanceAmnt}.json", 'w'))
